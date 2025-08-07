@@ -29,11 +29,9 @@ jobs:
       run: ls -lh
 
 
-    - name: Copy artifact to EC2
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.TEST_EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.TEST_EC2_PVT_KEY }}
-        source: "webapp/target/webapp.war"
-        target: "/home/ubuntu/test/"
+    - name: Copy WAR directly to EC2 (flatten path)
+      run: |
+        scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no webapp/target/*.war ubuntu@${{ secrets.TEST_EC2_HOST }}:/home/ubuntu/test/
+      env:
+        TEST_EC2_HOST: ${{ secrets.TEST_EC2_HOST }}
+
