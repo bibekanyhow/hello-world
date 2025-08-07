@@ -36,4 +36,4 @@ jobs:
         username: ubuntu
         key: ${{ secrets.TEST_EC2_PVT_KEY }}
         source: "webapp/target/*.war"
-        target: "/home/ubuntu/test/webapp.war"
+        target: "/home/ubuntu/test/"
