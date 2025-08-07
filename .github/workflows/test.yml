@@ -20,6 +20,10 @@ jobs:
     - name: Build with Maven
       run: mvn clean package
 
+    - name: List target contents (debug)
+      run: ls -lh target
+
+
     - name: Copy artifact to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
