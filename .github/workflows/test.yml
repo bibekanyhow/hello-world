@@ -35,5 +35,5 @@ jobs:
         host: ${{ secrets.TEST_EC2_HOST }}
         username: ubuntu
         key: ${{ secrets.TEST_EC2_PVT_KEY }}
-        source: "target/*.war"
+        source: "webapp/target/*.war"
         target: "/home/ubuntu/test"
