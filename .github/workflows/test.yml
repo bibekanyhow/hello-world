@@ -1,0 +1,30 @@
+name: Build and Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build with Maven
+      run: mvn clean package
+
+    - name: Copy artifact to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.TEST_EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.TEST_EC2_PVT_KEY }}
+        source: "target/*.war"
+        target: "/home/ubuntu/test"
