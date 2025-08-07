@@ -1,3 +1,5 @@
+
+
 name: Build and Deploy
 
 on:
@@ -20,8 +22,11 @@ jobs:
     - name: Build with Maven
       run: mvn clean package
 
-    - name: List target contents (debug)
-      run: ls -lh target
+    - name: Show current directory
+      run: pwd
+
+    - name: List current directory contents
+      run: ls -lh
 
 
     - name: Copy artifact to EC2
