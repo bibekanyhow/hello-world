@@ -26,6 +26,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y sshpass
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no webapp/target/*.war ${{ secrets.TEST_EC2_USERNAME }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
+        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no webapp/target/*.war ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
 
 
