@@ -37,5 +37,4 @@ jobs:
           docker rm webapp-container || true
           docker build -t webapp-image .
           docker run -d -p 8080:8080 --name webapp-container webapp-image
-          
           EOF
