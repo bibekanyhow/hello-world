@@ -21,19 +21,11 @@ jobs:
 
     - name: Build with Maven
       run: mvn clean package
-
-    - name: Show current directory
-      run: pwd
-
-    - name: List current directory contents
-      run: ls -lh
-
-
-    - name: Copy WAR directly to EC2 (flatten path)
+    
+    - name: Copy WAR using sshpass and password auth
       run: |
-        echo "${TEST_EC2_PVT_KEY}" > ec2_key.pem
-        chmod 600 ec2_key.pem
-        scp -i ec2_key.pem -o StrictHostKeyChecking=no webapp/target/*.war ubuntu@${TEST_EC2_HOST}:/home/ubuntu/test/
-      env:
-        TEST_EC2_HOST: ${{ secrets.TEST_EC2_HOST }}
-        TEST_EC2_PVT_KEY: ${{ secrets.TEST_EC2_PVT_KEY }}
+        sudo apt-get update
+        sudo apt-get install -y sshpass
+        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no webapp/target/*.war ${{ secrets.TEST_EC2_USERNAME }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
+
+
