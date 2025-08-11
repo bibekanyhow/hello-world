@@ -23,49 +23,43 @@ jobs:
     - name: Install sshpass
       run: sudo apt-get update && sudo apt-get install -y sshpass
 
+    - name: Configure AWS CLI in runner
+      run: |
+        aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+        aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+        aws configure set region ap-south-1
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
     - name: Copy WAR to EC2
       run: |
         sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" \
         scp -o StrictHostKeyChecking=no webapp/target/*.war \
         ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
 
-    - name: SSH into EC2 and Build + Push Docker Image
+    - name: Build and Push Docker Image on EC2
       run: |
+        ECR_PASSWORD=$(aws ecr get-login-password --region ap-south-1)
         sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" \
-        ssh -o StrictHostKeyChecking=no ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
-        # Install AWS CLI v2 if not installed
-        if ! command -v aws &> /dev/null; then
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-        fi
+        ssh -o StrictHostKeyChecking=no ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << EOF
+          cd /home/test
 
-        # Configure AWS CLI in EC2 (temporary credentials from GitHub secrets)
-        aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
-        aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
-        aws configure set region ap-south-1
+          docker stop webapp-container || true
+          docker rm webapp-container || true
 
-        cd /home/test
+          docker build -t webapp-image .
 
-        docker stop webapp-container || true
-        docker rm webapp-container || true
+          docker tag webapp-image:latest 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
 
-        docker build -t webapp-image .
+          echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin 792766147068.dkr.ecr.ap-south-1.amazonaws.com
 
-        docker tag webapp-image:latest 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
-
-        aws ecr get-login-password --region ap-south-1 | \
-          docker login --username AWS --password-stdin 792766147068.dkr.ecr.ap-south-1.amazonaws.com
-
-        docker push 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
+          docker push 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
         EOF
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     - name: Deploy to Docker Host via Ansible
       run: |
         sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" \
         ssh -o StrictHostKeyChecking=no ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
-        ansible-playbook -i /home/test/myhosts /home/test/deploy-app.yml
+          ansible-playbook -i /home/test/myhosts /home/test/deploy-app.yml
         EOF
