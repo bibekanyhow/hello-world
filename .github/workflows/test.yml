@@ -56,6 +56,6 @@ jobs:
       run: |
         sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
         ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
-        ansible-playbook -i /home/test/hosts /home/test/deploy-app.yml
+        ansible-playbook -i /home/test/myhosts /home/test/deploy-app.yml
         EOF
 
