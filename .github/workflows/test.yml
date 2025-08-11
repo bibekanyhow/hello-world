@@ -3,7 +3,8 @@
 name: Build and Deploy
 
 on:
-  workflow_dispatch:
+  push:
+  
 
 jobs:
   build-and-deploy:
@@ -50,3 +51,11 @@ jobs:
         # Push Docker image to ECR
         docker push 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
         EOF
+    
+    - name: Deploy to Docker Host via Ansible
+      run: |
+        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
+        ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
+        ansible-playbook -i /home/test/hosts /home/test/deploy_docker.yml
+        EOF
+
