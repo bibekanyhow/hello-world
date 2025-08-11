@@ -1,10 +1,7 @@
-
-
 name: Build and Deploy
 
 on:
   push:
-  
 
 jobs:
   build-and-deploy:
@@ -26,36 +23,36 @@ jobs:
     - name: Copy WAR and Build Docker on EC2, then Push to ECR
       run: |
         sudo apt-get update
-        sudo apt-get install -y sshpass
+        sudo apt-get install -y sshpass awscli
+
+        # Get ECR password in runner
+        ECR_PASSWORD=$(aws ecr get-login-password --region ap-south-1)
 
         # Copy WAR file to EC2
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no webapp/target/*.war ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
+        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" \
+        scp -o StrictHostKeyChecking=no webapp/target/*.war \
+        ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
 
-        # SSH into EC2 and run Docker + ECR commands
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
+        # SSH into EC2 and run Docker + ECR commands with pre-computed password
+        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" \
+        ssh -o StrictHostKeyChecking=no ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << EOF
         cd /home/test
 
-        # Stop and remove old container
         docker stop webapp-container || true
         docker rm webapp-container || true
 
-        # Build Docker image
         docker build -t webapp-image .
 
-        # Tag Docker image for ECR
         docker tag webapp-image:latest 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
 
-        # Authenticate Docker to ECR
-        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 792766147068.dkr.ecr.ap-south-1.amazonaws.com
+        echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin 792766147068.dkr.ecr.ap-south-1.amazonaws.com
 
-        # Push Docker image to ECR
         docker push 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
         EOF
     
     - name: Deploy to Docker Host via Ansible
       run: |
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
-        ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
+        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" \
+        ssh -o StrictHostKeyChecking=no ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
         ansible-playbook -i /home/test/myhosts /home/test/deploy-app.yml
         EOF
-
