@@ -21,7 +21,7 @@ jobs:
     - name: Build with Maven
       run: mvn clean package
     
-    - name: Copy WAR & Build Docker on EC2, then Push to ECR
+    - name: Copy WAR and Build Docker on EC2, then Push to ECR
       run: |
         sudo apt-get update
         sudo apt-get install -y sshpass
