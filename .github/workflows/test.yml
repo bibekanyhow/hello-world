@@ -1,83 +1,35 @@
-name: Build and Deploy
+name: Build WAR and Push Docker Image
 
 on:
   push:
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Build with Maven
-      run: mvn clean package
+      - name: Build WAR with Maven
+        run: mvn clean package -DskipTests -f webapp/pom.xml
 
-    - name: Copy WAR and Build Docker on EC2, then Push to ECR
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y sshpass
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-        # Copy WAR file to EC2
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" scp -o StrictHostKeyChecking=no \
-          webapp/target/*.war \
-          ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }}:/home/test/
+      - name: Build Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/webapp:latest .
 
-        # SSH into EC2 and run Docker + ECR commands
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
-          ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
-        cd /home/test
-
-        # Install AWS CLI v2 if not installed
-        if ! command -v aws &> /dev/null; then
-          echo "Installing AWS CLI v2..."
-          sudo apt-get update
-          sudo apt-get install -y unzip curl
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -o awscliv2.zip
-          sudo ./aws/install
-        fi
-
-        # Configure AWS credentials (use IAM User / Role on EC2)
-        mkdir -p ~/.aws
-        cat > ~/.aws/credentials <<EOL
-        [default]
-        aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        EOL
-        cat > ~/.aws/config <<EOL
-        [default]
-        region=ap-south-1
-        output=json
-        EOL
-
-        # Stop and remove old container
-        docker stop webapp-container || true
-        docker rm webapp-container || true
-
-        # Build Docker image
-        docker build -t webapp-image .
-
-        # Tag Docker image for ECR
-        docker tag webapp-image:latest 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
-
-        # Authenticate Docker to ECR
-        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 792766147068.dkr.ecr.ap-south-1.amazonaws.com
-
-        # Push Docker image to ECR
-        docker push 792766147068.dkr.ecr.ap-south-1.amazonaws.com/myrepo:webapp-image
-        EOF
-
-    - name: Deploy to Docker Host via Ansible
-      run: |
-        sshpass -p "${{ secrets.TEST_EC2_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
-        ${{ secrets.TEST_EC2_USER }}@${{ secrets.TEST_EC2_HOST }} << 'EOF'
-        ansible-playbook -i /home/test/myhosts /home/test/deploy-app.yml
-        EOF
+      - name: Push Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/webapp:latest
